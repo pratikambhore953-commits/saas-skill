@@ -4,8 +4,9 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
+import OTPInput from "@/components/OTPInput";
 import { useAuth } from "@/context/AuthContext";
-import { OTP_REGEX, validatePassword } from "@/lib/authValidation";
+import { isValidEmail, validatePassword } from "@/lib/authValidation";
 
 type LoginMode = "password" | "otp";
 
@@ -30,9 +31,8 @@ function LoginPageContent() {
   const { login, sendOtp, verifyOtp, loginWithGoogle } = useAuth();
 
   const [mode, setMode] = useState<LoginMode>("password");
-  const [identifier, setIdentifier] = useState("aarav@example.com");
+  const [email, setEmail] = useState("aarav@example.com");
   const [password, setPassword] = useState("password123");
-  const [otp, setOtp] = useState("");
   const [otpExpiry, setOtpExpiry] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
   const [error, setError] = useState("");
@@ -61,6 +61,10 @@ function LoginPageContent() {
     event.preventDefault();
     setError("");
     setMessage("");
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email.");
+      return;
+    }
     if (!validatePassword(password)) {
       setError("Password must be at least 8 characters.");
       return;
@@ -68,7 +72,7 @@ function LoginPageContent() {
     setLoading(true);
     setActiveAction("password");
     try {
-      await login(identifier, password);
+      await login(email, password);
       redirectToNext();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -81,12 +85,16 @@ function LoginPageContent() {
   const onSendOtp = async () => {
     setError("");
     setMessage("");
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email.");
+      return;
+    }
     setLoading(true);
     setActiveAction("otp-send");
     try {
-      const payload = await sendOtp(identifier);
+      const payload = await sendOtp(email);
       setOtpExpiry(payload.expiresAt);
-      setMessage("OTP sent successfully. Use 123456 in this demo.");
+      setMessage("OTP sent to your email.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to send OTP");
     } finally {
@@ -95,18 +103,13 @@ function LoginPageContent() {
     }
   };
 
-  const onVerifyOtp = async (event: FormEvent) => {
-    event.preventDefault();
+  const onVerifyOtp = async (otp: string) => {
     setError("");
     setMessage("");
-    if (!OTP_REGEX.test(otp.trim())) {
-      setError("Enter a valid 6-digit OTP.");
-      return;
-    }
     setLoading(true);
     setActiveAction("otp-verify");
     try {
-      await verifyOtp(identifier, otp);
+      await verifyOtp(email, otp);
       redirectToNext();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to verify OTP");
@@ -164,10 +167,6 @@ function LoginPageContent() {
             <p className="mt-4 max-w-lg text-lg text-slate-300">
               Access your sessions, discover new matches, and continue growing your career with curated skill exchange.
             </p>
-            <div className="mt-8 space-y-3 text-sm text-slate-200">
-              <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">Secure mock auth enabled for demo mode.</p>
-              <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">Try `aarav@example.com` with `password123`.</p>
-            </div>
           </section>
 
           <div className="w-full rounded-2xl border border-white/10 bg-[#0b1224]/85 p-6 shadow-2xl shadow-black/35 backdrop-blur xl:p-8">
@@ -181,33 +180,19 @@ function LoginPageContent() {
 
             <div className="mt-5 grid grid-cols-2 rounded-xl border border-white/10 bg-white/5 p-1">
               <ModeTab label="Password" active={mode === "password"} onClick={() => setMode("password")} />
-              <ModeTab label="OTP" active={mode === "otp"} onClick={() => setMode("otp")} />
+              <ModeTab label="OTP Login" active={mode === "otp"} onClick={() => setMode("otp")} />
             </div>
 
             <div className="mt-4">
-              <label className="mb-1.5 block text-sm font-medium text-slate-200">Email or phone</label>
+              <label className="mb-1.5 block text-sm font-medium text-slate-200">Email</label>
               <input
                 className="w-full rounded-xl border border-white/15 bg-[#111a33] px-3.5 py-2.5 text-white outline-none ring-2 ring-transparent transition focus:border-amber-400/50 focus:ring-amber-400/20"
-                value={identifier}
-                onChange={(event) => setIdentifier(event.target.value)}
-                placeholder="you@example.com or +91..."
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
                 autoComplete="username"
                 required
               />
-            </div>
-
-            <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
-              <p className="font-semibold text-amber-200">Demo credentials</p>
-              <p className="mt-1">
-                Email: <span className="font-mono text-amber-100">aarav@example.com</span>
-              </p>
-              <p className="mt-1">
-                Password: <span className="font-mono text-amber-100">password123</span>
-              </p>
-              <p className="mt-1 text-amber-200/90">
-                OTP mode: click <span className="font-semibold">Send OTP</span> and use{" "}
-                <span className="font-mono text-amber-100">123456</span>.
-              </p>
             </div>
 
             {mode === "password" ? (
@@ -234,7 +219,7 @@ function LoginPageContent() {
                 </button>
               </form>
             ) : (
-              <form onSubmit={onVerifyOtp} className="mt-4 space-y-4">
+              <div className="mt-4 space-y-4">
                 <button
                   type="button"
                   disabled={loading || (otpExpiry !== null && !canResendOtp)}
@@ -247,29 +232,9 @@ function LoginPageContent() {
                       ? `Resend in ${otpRemainingSeconds}s`
                       : "Send OTP"}
                 </button>
-
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium text-slate-200">Enter OTP</label>
-                  <input
-                    inputMode="numeric"
-                    maxLength={6}
-                    pattern="\d{6}"
-                    className="w-full rounded-xl border border-white/15 bg-[#111a33] px-3.5 py-2.5 text-white outline-none ring-2 ring-transparent transition focus:border-amber-400/50 focus:ring-amber-400/20"
-                    value={otp}
-                    onChange={(event) => setOtp(event.target.value.replace(/[^\d]/g, ""))}
-                    placeholder="6-digit code"
-                    required
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-xl bg-amber-500 px-4 py-2.5 font-semibold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
-                >
-                  {loading && activeAction === "otp-verify" ? "Verifying..." : "Verify OTP"}
-                </button>
-              </form>
+                <p className="text-xs text-slate-300">Enter the 6-digit OTP sent to your email.</p>
+                <OTPInput disabled={loading} onComplete={onVerifyOtp} />
+              </div>
             )}
 
             <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
@@ -282,8 +247,9 @@ function LoginPageContent() {
               type="button"
               disabled={loading}
               onClick={onGoogleLogin}
-              className="w-full rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 font-medium text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-medium text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
             >
+              <GoogleIcon />
               {loading && activeAction === "google" ? "Signing in with Google..." : "Continue with Google"}
             </button>
 
@@ -326,6 +292,14 @@ function ModeTab({ label, active, onClick }: { label: string; active: boolean; o
     >
       {label}
     </button>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-1.4 3.4-5.5 3.4a6.1 6.1 0 1 1 0-12.2c2.3 0 3.8 1 4.6 1.8l3.1-3A10.5 10.5 0 0 0 12 1.5a10.5 10.5 0 1 0 0 21c6 0 10-4.2 10-10.2 0-.7-.1-1.2-.2-1.8H12Z" />
+    </svg>
   );
 }
 

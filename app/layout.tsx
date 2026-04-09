@@ -4,6 +4,7 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { SocketProvider } from "@/context/SocketContext";
 import Navbar from "@/components/Navbar";
+import SessionProviderClient from "@/components/SessionProviderClient";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,14 +32,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-[#0D0F1A] text-white">
-        <AuthProvider>
-          <SocketProvider>
-            <div className="relative isolate flex min-h-full flex-col">
-              <Navbar />
-              <main className="relative z-0 flex-1">{children}</main>
-            </div>
-          </SocketProvider>
-        </AuthProvider>
+        <SessionProviderClient>
+          <AuthProvider>
+            <SocketProvider>
+              <div className="relative isolate flex min-h-full flex-col">
+                <Navbar />
+                <main className="relative z-0 flex-1">{children}</main>
+              </div>
+            </SocketProvider>
+          </AuthProvider>
+        </SessionProviderClient>
       </body>
     </html>
   );

@@ -4,30 +4,45 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import OTPInput from "@/components/OTPInput";
 import { useAuth } from "@/context/AuthContext";
-import SparkleBackground from "@/components/SparkleBackground";
+import { isValidEmail, validatePassword } from "@/lib/authValidation";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, verifyOtp, sendOtp, loginWithGoogle } = useAuth();
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otpStep, setOtpStep] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const onSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError("");
+    setMessage("");
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
+    if (!validatePassword(password)) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
     setLoading(true);
     try {
       await register(name, email, password);
-      router.push("/dashboard");
+      setOtpStep(true);
+      setMessage("Check your email for OTP.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -35,122 +50,158 @@ export default function RegisterPage() {
     }
   };
 
-  return (
-    <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center overflow-hidden bg-[#0F172A] px-4 py-10">
-      <SparkleBackground />
-      <motion.div
-        className="pointer-events-none absolute -left-24 -top-20 h-72 w-72 rounded-full bg-amber-500/20 blur-3xl"
-        animate={{ scale: [1, 1.05, 1], opacity: [0.1, 0.15, 0.1] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-      />
-      <motion.div
-        className="pointer-events-none absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-amber-500/20 blur-3xl"
-        animate={{ scale: [1.05, 1, 1.05], opacity: [0.15, 0.1, 0.15] }}
-        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-      />
+  const onVerify = async (otp: string) => {
+    setError("");
+    setLoading(true);
+    try {
+      await verifyOtp(email, otp);
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "OTP verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  const onResendOtp = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await sendOtp(email);
+      setMessage("OTP resent successfully.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to resend OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onGoogleSignup = async () => {
+    setError("");
+    setLoading(true);
+    try {
+      await loginWithGoogle();
+      router.push("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Google sign up failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="relative isolate mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md items-center overflow-hidden bg-[#0F172A] px-4 py-10">
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        animate={error ? { opacity: 1, y: 0, x: [0, -10, 10, -10, 10, 0] } : { opacity: 1, y: 0, x: 0 }}
-        transition={error ? { duration: 0.4 } : { duration: 0.5, ease: "easeOut" }}
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
         className="relative z-10 w-full rounded-2xl border border-slate-700 bg-[#1E293B] p-6 shadow-xl shadow-black/20"
       >
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1, duration: 0.35 }}>
-          <h1 className="text-2xl font-semibold text-white">Create your account</h1>
-          <p className="mt-1 text-sm text-slate-300">Start exchanging skills in minutes.</p>
-        </motion.div>
+        <h1 className="text-2xl font-semibold text-white">{otpStep ? "Verify your email" : "Create your account"}</h1>
+        <p className="mt-1 text-sm text-slate-300">
+          {otpStep ? "Use the 6-digit OTP sent to your inbox." : "Start exchanging skills in minutes."}
+        </p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.35, ease: "easeOut" }}>
-            <label className="mb-1 block text-sm font-medium text-slate-200">Full Name</label>
-            <input
-              className="w-full rounded-lg border border-slate-600 bg-[#121523] px-3 py-2 text-white outline-none ring-2 ring-transparent transition focus:ring-amber-500/35"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your full name"
-              required
-            />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.35, ease: "easeOut" }}>
-            <label className="mb-1 block text-sm font-medium text-slate-200">Email</label>
-            <input
-              type="email"
-              className="w-full rounded-lg border border-slate-600 bg-[#121523] px-3 py-2 text-white outline-none ring-2 ring-transparent transition focus:ring-amber-500/35"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              required
-            />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.35, ease: "easeOut" }}>
-            <label className="mb-1 block text-sm font-medium text-slate-200">Password</label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-slate-600 bg-[#121523] px-3 py-2 text-white outline-none ring-2 ring-transparent transition focus:ring-amber-500/35"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter a password"
-              required
-            />
-          </motion.div>
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.35, ease: "easeOut" }}>
-            <label className="mb-1 block text-sm font-medium text-slate-200">Confirm Password</label>
-            <input
-              type="password"
-              className="w-full rounded-lg border border-slate-600 bg-[#121523] px-3 py-2 text-white outline-none ring-2 ring-transparent transition focus:ring-amber-500/35"
+        {!otpStep ? (
+          <form onSubmit={onSubmit} className="mt-6 space-y-4">
+            <Field label="Full Name" value={name} setValue={setName} placeholder="Your full name" />
+            <Field label="Email" value={email} setValue={setEmail} placeholder="you@example.com" type="email" />
+            <Field label="Password" value={password} setValue={setPassword} placeholder="Enter a password" type="password" />
+            <Field
+              label="Confirm Password"
               value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              setValue={setConfirmPassword}
               placeholder="Confirm your password"
-              required
+              type="password"
             />
-          </motion.div>
 
-          {error && (
-            <motion.p
-              className="text-sm text-red-400"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.55, duration: 0.25 }}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-amber-500 px-4 py-2 font-semibold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {error}
-            </motion.p>
-          )}
+              {loading ? "Creating account..." : "Register"}
+            </button>
+          </form>
+        ) : (
+          <div className="mt-6 space-y-4">
+            <p className="text-sm text-slate-300">Check your email for OTP</p>
+            <OTPInput onComplete={onVerify} disabled={loading} />
+            <button
+              type="button"
+              onClick={onResendOtp}
+              className="text-sm font-semibold text-amber-400 transition hover:text-amber-300"
+            >
+              Resend OTP
+            </button>
+          </div>
+        )}
 
-          <motion.button
-            type="submit"
-            disabled={loading}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.6, duration: 0.35 }}
-            className="w-full rounded-lg bg-amber-500 px-4 py-2 font-semibold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <motion.span
-                  className="inline-block h-4 w-4 rounded-full border-2 border-black/30 border-t-black"
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                />
-                Creating account...
-              </span>
-            ) : (
-              "Register"
-            )}
-          </motion.button>
-        </form>
+        <div className="my-4 flex items-center gap-3 text-xs text-slate-400">
+          <span className="h-px flex-1 bg-white/15" />
+          <span>OR</span>
+          <span className="h-px flex-1 bg-white/15" />
+        </div>
 
-        <motion.p
-          className="mt-4 text-sm text-slate-300"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.55, duration: 0.3 }}
+        <button
+          type="button"
+          disabled={loading}
+          onClick={onGoogleSignup}
+          className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-medium text-slate-800 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-70"
         >
+          <GoogleIcon />
+          Continue with Google
+        </button>
+
+        {(error || message) && (
+          <p className={`mt-4 rounded-lg border px-3 py-2 text-sm ${error ? "border-red-400/30 bg-red-500/10 text-red-300" : "border-emerald-400/30 bg-emerald-500/10 text-emerald-300"}`}>
+            {error || message}
+          </p>
+        )}
+
+        <p className="mt-4 text-sm text-slate-300">
           Already have an account?{" "}
           <Link href="/login" className="font-semibold text-amber-400 hover:text-amber-300 hover:underline">
             Login
           </Link>
-        </motion.p>
+        </p>
       </motion.div>
     </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  setValue,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  setValue: (value: string) => void;
+  placeholder: string;
+  type?: "text" | "email" | "password";
+}) {
+  return (
+    <div>
+      <label className="mb-1 block text-sm font-medium text-slate-200">{label}</label>
+      <input
+        type={type}
+        className="w-full rounded-lg border border-slate-600 bg-[#121523] px-3 py-2 text-white outline-none ring-2 ring-transparent transition focus:ring-amber-500/35"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+        required
+      />
+    </div>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#EA4335" d="M12 10.2v3.9h5.5c-.2 1.2-1.4 3.4-5.5 3.4a6.1 6.1 0 1 1 0-12.2c2.3 0 3.8 1 4.6 1.8l3.1-3A10.5 10.5 0 0 0 12 1.5a10.5 10.5 0 1 0 0 21c6 0 10-4.2 10-10.2 0-.7-.1-1.2-.2-1.8H12Z" />
+    </svg>
   );
 }
