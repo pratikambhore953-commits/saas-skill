@@ -4,14 +4,22 @@ import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { googleAuthApi, loginWithPasswordApi, verifyOtpApi } from "@/lib/authApi";
 
+function requireAuthEnv(key: "NEXTAUTH_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET"): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing required env var: ${key}`);
+  }
+  return value;
+}
+
 const authConfig: NextAuthOptions = {
   session: {
     strategy: "jwt",
   },
   providers: [
     GoogleProvider({
-      clientId: process.env.GOOGLE_CLIENT_ID ?? "",
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      clientId: requireAuthEnv("GOOGLE_CLIENT_ID"),
+      clientSecret: requireAuthEnv("GOOGLE_CLIENT_SECRET"),
     }),
     CredentialsProvider({
       id: "password-login",
@@ -105,7 +113,7 @@ const authConfig: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: requireAuthEnv("NEXTAUTH_SECRET"),
 };
 
 const handler = NextAuth(authConfig);
