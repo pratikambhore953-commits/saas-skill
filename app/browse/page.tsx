@@ -51,9 +51,9 @@ export default function BrowsePage() {
   }, [loading, skills.length]);
 
   return (
-    <div className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(245,158,11,0.16),transparent_40%),radial-gradient(circle_at_88%_10%,rgba(99,102,241,0.18),transparent_36%)]" />
-      <div className="relative mx-auto w-full max-w-6xl px-4 py-10 sm:py-12">
+    <div className="relative isolate overflow-hidden">
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[radial-gradient(circle_at_18%_15%,rgba(245,158,11,0.16),transparent_40%),radial-gradient(circle_at_88%_10%,rgba(99,102,241,0.18),transparent_36%)]" />
+      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:py-12">
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.28 }}>
           <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">Discover Skills</h1>
           <p className="mt-2 max-w-2xl text-slate-300">Find people offering what you need and people looking for what you can teach.</p>

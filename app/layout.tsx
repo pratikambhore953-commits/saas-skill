@@ -33,9 +33,9 @@ export default function RootLayout({
       <body className="min-h-full bg-[#0D0F1A] text-white">
         <AuthProvider>
           <SocketProvider>
-            <div className="flex min-h-full flex-col">
+            <div className="relative isolate flex min-h-full flex-col">
               <Navbar />
-              <main className="flex-1">{children}</main>
+              <main className="relative z-0 flex-1">{children}</main>
             </div>
           </SocketProvider>
         </AuthProvider>

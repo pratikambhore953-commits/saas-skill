@@ -133,9 +133,9 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="relative min-h-[calc(100vh-4rem)] overflow-hidden bg-[#020617]">
+    <div className="relative isolate min-h-[calc(100vh-4rem)] overflow-hidden bg-[#020617]">
       <video
-        className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-45"
+        className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-45"
         autoPlay
         muted
         loop
@@ -146,12 +146,12 @@ function LoginPageContent() {
       >
         <source src="/auth-bg.mp4" type="video/mp4" />
       </video>
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.24),transparent_45%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.18),transparent_40%),linear-gradient(to_bottom,rgba(2,6,23,0.82),rgba(2,6,23,0.95))]" />
+      <div className="pointer-events-none absolute inset-0 z-[1] bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.24),transparent_45%),radial-gradient(circle_at_bottom_left,rgba(59,130,246,0.18),transparent_40%),linear-gradient(to_bottom,rgba(2,6,23,0.82),rgba(2,6,23,0.95))]" />
       <motion.div
         initial={{ opacity: 0, y: prefersReducedMotion ? 0 : 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35, ease: "easeOut" }}
-        className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center px-4 py-10"
+        className="relative z-20 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-6xl items-center px-4 py-10"
       >
         <div className="grid w-full items-center gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <section className="hidden lg:block">
@@ -194,6 +194,20 @@ function LoginPageContent() {
                 autoComplete="username"
                 required
               />
+            </div>
+
+            <div className="mt-3 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3 text-xs text-amber-100">
+              <p className="font-semibold text-amber-200">Demo credentials</p>
+              <p className="mt-1">
+                Email: <span className="font-mono text-amber-100">aarav@example.com</span>
+              </p>
+              <p className="mt-1">
+                Password: <span className="font-mono text-amber-100">password123</span>
+              </p>
+              <p className="mt-1 text-amber-200/90">
+                OTP mode: click <span className="font-semibold">Send OTP</span> and use{" "}
+                <span className="font-mono text-amber-100">123456</span>.
+              </p>
             </div>
 
             {mode === "password" ? (
