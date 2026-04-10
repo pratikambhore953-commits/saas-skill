@@ -12,6 +12,7 @@ import {
   getRecommendedMatches,
 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
+import AvatarUpload from "@/components/AvatarUpload";
 
 const categories = ["Development", "Design", "Communication", "Analytics", "Business"];
 const levels: SkillLevel[] = ["Beginner", "Intermediate", "Advanced"];
@@ -87,6 +88,7 @@ export default function DashboardPage() {
           <h1 className="text-3xl font-semibold tracking-tight text-white">Welcome back, {user.name}</h1>
           <p className="mt-2 text-slate-300">Manage your profile and discover skill exchanges.</p>
         </div>
+        <AvatarUpload editable={false} />
         <button
           onClick={() => setIsModalOpen(true)}
           className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"

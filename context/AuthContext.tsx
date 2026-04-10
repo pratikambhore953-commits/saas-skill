@@ -3,13 +3,26 @@
 import { createContext, useContext, useState } from "react";
 import { getSession, signIn, signOut } from "next-auth/react";
 import { isValidEmail, normalizeEmail, validatePassword } from "@/lib/authValidation";
-import { loginWithPasswordApi, registerApi, sendOtpApi, verifyOtpApi } from "@/lib/authApi";
+import {
+  AuthApiUser,
+  loginWithPasswordApi,
+  registerApi,
+  sendOtpApi,
+  uploadAvatarApi,
+  verifyOtpApi,
+} from "@/lib/authApi";
 
 type AuthUser = {
   id: string;
   name: string;
   email: string;
   phone?: string;
+  avatar_url?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  is_verified?: boolean;
+  email_verified?: boolean;
+  auth_provider?: "LOCAL" | "GOOGLE";
 };
 
 type AuthContextValue = {
@@ -21,6 +34,8 @@ type AuthContextValue = {
   verifyOtp: (identifier: string, otp: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  updateCurrentUser: (user: AuthUser) => void;
+  uploadAvatar: (file: File) => Promise<AuthUser>;
   logout: () => void;
 };
 
@@ -36,13 +51,38 @@ type SessionUserShape = {
   name?: string | null;
   email?: string | null;
   avatar_url?: string | null;
+  bio?: string | null;
+  location?: string | null;
+  is_verified?: boolean;
+  email_verified?: boolean;
+  auth_provider?: "LOCAL" | "GOOGLE";
 };
+
+function mapApiUserToAuthUser(user: AuthApiUser): AuthUser {
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    avatar_url: user.avatar_url,
+    bio: user.bio,
+    location: user.location,
+    is_verified: user.is_verified,
+    email_verified: user.email_verified,
+    auth_provider: user.auth_provider,
+  };
+}
 
 function mapSessionUserToAuthUser(user: SessionUserShape): AuthUser {
   return {
     id: user.id ?? "",
     name: user.name ?? "SkillSwap User",
     email: user.email ?? "",
+    avatar_url: user.avatar_url ?? null,
+    bio: user.bio ?? null,
+    location: user.location ?? null,
+    is_verified: user.is_verified,
+    email_verified: user.email_verified,
+    auth_provider: user.auth_provider,
   };
 }
 
@@ -59,12 +99,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
 
-  const setAuthSession = (authUser: AuthUser, accessToken: string, refreshToken: string) => {
+  const persistUser = (authUser: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authUser));
+    setUser(authUser);
+  };
+
+  const setAuthSession = (authUser: AuthUser, accessToken: string, refreshToken: string) => {
+    persistUser(authUser);
     localStorage.setItem(TOKEN_KEY, refreshToken);
     localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
     document.cookie = `${TOKEN_KEY}=${refreshToken}; Max-Age=86400; Path=/; SameSite=Lax`;
-    setUser(authUser);
   };
 
   const login = async (emailOrPhone: string, password: string) => {
@@ -81,11 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const response = await loginWithPasswordApi(email, password);
     setAuthSession(
-      {
-        id: response.data.user.id,
-        name: response.data.user.name,
-        email: response.data.user.email,
-      },
+      mapApiUserToAuthUser(response.data.user),
       response.data.accessToken,
       response.data.refreshToken,
     );
@@ -108,11 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     const response = await verifyOtpApi(email, otp);
     setAuthSession(
-      {
-        id: response.data.user.id,
-        name: response.data.user.name,
-        email: response.data.user.email,
-      },
+      mapApiUserToAuthUser(response.data.user),
       response.data.accessToken,
       response.data.refreshToken,
     );
@@ -148,6 +184,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await sendOtpApi(normalizedEmail);
   };
 
+  const updateCurrentUser = (nextUser: AuthUser) => {
+    persistUser(nextUser);
+  };
+
+  const uploadAvatar = async (file: File) => {
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (!accessToken) {
+      throw new Error("You must be logged in to upload avatar.");
+    }
+
+    const response = await uploadAvatarApi(file, accessToken);
+    const updated = mapApiUserToAuthUser(response.data.user);
+    persistUser(updated);
+    return updated;
+  };
+
   const logout = () => {
     if (typeof window === "undefined") return;
     localStorage.removeItem(STORAGE_KEY);
@@ -167,6 +219,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifyOtp,
     loginWithGoogle,
     register,
+    updateCurrentUser,
+    uploadAvatar,
     logout,
   };
 

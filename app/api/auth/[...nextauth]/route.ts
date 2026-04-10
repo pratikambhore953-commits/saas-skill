@@ -79,10 +79,10 @@ const authConfig: NextAuthOptions = {
       if (!providerId || !email || !name) return false;
 
       const backendResult = await googleAuthApi({
-        id: providerId,
+        google_id: providerId,
         email,
         name,
-        avatar:
+        avatar_url:
           typeof (profile as { picture?: unknown } | null)?.picture === "string"
             ? ((profile as { picture?: string }).picture ?? null)
             : null,

@@ -22,6 +22,14 @@ export type AuthApiResponse = {
   message?: string;
 };
 
+export type UserProfileResponse = {
+  success: boolean;
+  data: {
+    user: AuthApiUser;
+  };
+  message?: string;
+};
+
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
 if (!API_BASE) {
@@ -74,10 +82,10 @@ export async function verifyOtpApi(email: string, otp: string): Promise<AuthApiR
 }
 
 export async function googleAuthApi(payload: {
-  id: string;
+  google_id: string;
   email: string;
   name: string;
-  avatar?: string | null;
+  avatar_url?: string | null;
 }): Promise<AuthApiResponse> {
   const response = await fetch(`${API_BASE}/api/auth/google`, {
     method: "POST",
@@ -85,4 +93,19 @@ export async function googleAuthApi(payload: {
     body: JSON.stringify(payload),
   });
   return parseResponse<AuthApiResponse>(response);
+}
+
+export async function uploadAvatarApi(file: File, accessToken: string): Promise<UserProfileResponse> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  const response = await fetch(`${API_BASE}/api/users/avatar`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: formData,
+  });
+
+  return parseResponse<UserProfileResponse>(response);
 }
