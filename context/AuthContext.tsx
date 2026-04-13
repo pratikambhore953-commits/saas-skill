@@ -19,6 +19,7 @@ type AuthUser = {
   phone?: string;
   avatar_url?: string | null;
   bio?: string | null;
+  about_me?: string | null;
   location?: string | null;
   is_verified?: boolean;
   email_verified?: boolean;
@@ -34,6 +35,7 @@ type AuthContextValue = {
   verifyOtp: (identifier: string, otp: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  updateUser: (userData: Partial<AuthUser>) => void;
   updateCurrentUser: (user: AuthUser) => void;
   uploadAvatar: (file: File) => Promise<AuthUser>;
   logout: () => void;
@@ -188,6 +190,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     persistUser(nextUser);
   };
 
+  const updateUser = (userData: Partial<AuthUser>) => {
+    setUser((prevUser) => {
+      if (!prevUser) {
+        return prevUser;
+      }
+      const mergedUser: AuthUser = { ...prevUser, ...userData };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(mergedUser));
+      return mergedUser;
+    });
+  };
+
   const uploadAvatar = async (file: File) => {
     const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
     if (!accessToken) {
@@ -219,6 +232,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     verifyOtp,
     loginWithGoogle,
     register,
+    updateUser,
     updateCurrentUser,
     uploadAvatar,
     logout,

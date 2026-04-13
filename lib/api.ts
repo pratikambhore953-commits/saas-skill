@@ -57,15 +57,37 @@ export type PublicUserSkill = {
   id: string;
   name: string;
   is_offering: boolean;
+  category?: string;
+  level?: string;
+  description?: string | null;
 };
 
 export type PublicUserProfile = {
   id: string;
   name: string;
+  email?: string;
+  phone?: string | null;
   avatar_url: string | null;
   bio: string | null;
+  about_me?: string | null;
   location: string | null;
   skills: PublicUserSkill[];
+  created_at?: string;
+  sessions_completed?: number;
+  skills_shared?: number;
+};
+
+export type ProfileChangeType = "EMAIL_CHANGE" | "PHONE_CHANGE" | "PASSWORD_CHANGE";
+
+export type SkillCategory = "TECHNOLOGY" | "DESIGN" | "LANGUAGE" | "MUSIC" | "BUSINESS" | "OTHER";
+export type SkillProficiency = "BEGINNER" | "INTERMEDIATE" | "EXPERT";
+
+export type ProfileSkillInput = {
+  name: string;
+  category: SkillCategory;
+  level: SkillProficiency;
+  is_offering: boolean;
+  description?: string;
 };
 
 export type SessionMode = "ONLINE" | "OFFLINE";
@@ -318,13 +340,186 @@ async function readApiError(response: Response): Promise<string> {
   }
 }
 
-export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile> {
-  const response = await fetch(`${API_BASE}/api/users/${userId}`);
+async function parseJsonResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
-  const body = (await response.json()) as { data: { user: PublicUserProfile } };
-  return body.data.user;
+  return (await response.json()) as T;
+}
+
+function getAuthHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile> {
+  const response = await fetch(`${API_BASE}/api/users/${userId}`);
+  const body = await parseJsonResponse<{ data?: { user?: PublicUserProfile }; user?: PublicUserProfile }>(response);
+  const user = body.data?.user ?? body.user;
+  if (!user) {
+    throw new Error("Profile data is missing");
+  }
+  return {
+    ...user,
+    bio: user.bio ?? user.about_me ?? null,
+  };
+}
+
+export async function updateProfileBasic(payload: {
+  name?: string;
+  about_me?: string;
+  location?: string;
+}): Promise<PublicUserProfile> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to update your profile");
+  }
+
+  const response = await fetch(`${API_BASE}/api/profile/basic`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await parseJsonResponse<{ data?: { user?: PublicUserProfile }; user?: PublicUserProfile }>(response);
+  const user = body.data?.user ?? body.user;
+  if (!user) {
+    throw new Error("Updated profile is missing in response");
+  }
+  return {
+    ...user,
+    bio: user.bio ?? user.about_me ?? null,
+  };
+}
+
+export async function updateProfileSkills(skills: ProfileSkillInput[]): Promise<PublicUserSkill[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to update your skills");
+  }
+
+  const response = await fetch(`${API_BASE}/api/profile/skills`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify({ skills }),
+  });
+
+  const body = await parseJsonResponse<{ data?: { skills?: PublicUserSkill[] }; skills?: PublicUserSkill[] }>(response);
+  return body.data?.skills ?? body.skills ?? [];
+}
+
+export async function requestProfileOtp(changeType: ProfileChangeType, payload?: {
+  new_email?: string;
+  phone?: string;
+}): Promise<{ success: boolean; message: string }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to continue");
+  }
+
+  const endpointMap: Record<ProfileChangeType, string> = {
+    EMAIL_CHANGE: "/api/profile/request-email-change",
+    PHONE_CHANGE: "/api/profile/request-phone-change",
+    PASSWORD_CHANGE: "/api/profile/request-password-change",
+  };
+
+  const response = await fetch(`${API_BASE}${endpointMap[changeType]}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify(payload ?? {}),
+  });
+
+  const body = await parseJsonResponse<{ success?: boolean; message?: string }>(response);
+  return {
+    success: body.success ?? true,
+    message: body.message ?? "OTP sent",
+  };
+}
+
+export async function verifyProfileOtp(payload: {
+  otp: string;
+  change_type: ProfileChangeType;
+  new_password?: string;
+}): Promise<{ user: PublicUserProfile }> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to continue");
+  }
+
+  const response = await fetch(`${API_BASE}/api/profile/verify-otp`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await parseJsonResponse<{ data?: { user?: PublicUserProfile }; user?: PublicUserProfile }>(response);
+  const user = body.data?.user ?? body.user;
+  if (!user) {
+    throw new Error("Updated user is missing in OTP verification response");
+  }
+  return {
+    user: {
+      ...user,
+      bio: user.bio ?? user.about_me ?? null,
+    },
+  };
+}
+
+export async function uploadProfileAvatar(file: File): Promise<PublicUserProfile> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to upload avatar");
+  }
+
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  const response = await fetch(`${API_BASE}/api/profile/avatar`, {
+    method: "POST",
+    headers: getAuthHeaders(token),
+    body: formData,
+  });
+
+  const body = await parseJsonResponse<{ data?: { user?: PublicUserProfile }; user?: PublicUserProfile }>(response);
+  const user = body.data?.user ?? body.user;
+  if (!user) {
+    throw new Error("Updated user is missing in avatar response");
+  }
+  return {
+    ...user,
+    bio: user.bio ?? user.about_me ?? null,
+  };
+}
+
+export async function deleteCurrentUser(): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to delete your account");
+  }
+
+  const response = await fetch(`${API_BASE}/api/users/me`, {
+    method: "DELETE",
+    headers: {
+      ...getAuthHeaders(token),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
 }
 
 export async function createSession(payload: CreateSessionPayload): Promise<SessionItem> {

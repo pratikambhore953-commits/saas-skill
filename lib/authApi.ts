@@ -30,11 +30,7 @@ export type UserProfileResponse = {
   message?: string;
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-
-if (!API_BASE) {
-  throw new Error("Missing NEXT_PUBLIC_API_URL");
-}
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001";
 
 async function parseResponse<T>(response: Response): Promise<T> {
   const body = (await response.json()) as T & { message?: string };
