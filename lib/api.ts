@@ -127,6 +127,31 @@ export type SessionItem = {
   skill: SessionSkillSummary;
 };
 
+export type LearningResource = {
+  skill: string;
+  resource: string;
+  type: "free" | "paid";
+  url: string;
+};
+
+export type SkillAnalysis = {
+  id: string;
+  user_id: string;
+  profile_score: number;
+  strengths: string[];
+  weaknesses: string[];
+  skill_gaps: string[];
+  recommendations: string[];
+  career_paths: string[];
+  learning_resources: LearningResource[];
+  match_improvement_tips: string[];
+  summary: string;
+  last_analysed_at: string;
+  created_at: string;
+  updated_at: string;
+  score_explanation?: string;
+};
+
 export type CreateSessionPayload = {
   teacher_id: string;
   skill_id: string;
@@ -353,6 +378,10 @@ function getAuthHeaders(token: string): HeadersInit {
   };
 }
 
+function resolveAccessToken(accessToken?: string): string | null {
+  return accessToken ?? getAuthToken();
+}
+
 export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile> {
   const response = await fetch(`${API_BASE}/api/users/${userId}`);
   const body = await parseJsonResponse<{ data?: { user?: PublicUserProfile }; user?: PublicUserProfile }>(response);
@@ -520,6 +549,54 @@ export async function deleteCurrentUser(): Promise<void> {
   if (!response.ok) {
     throw new Error(await readApiError(response));
   }
+}
+
+export async function getSkillAnalysis(accessToken?: string): Promise<SkillAnalysis> {
+  const token = resolveAccessToken(accessToken);
+  if (!token) {
+    throw new Error("Please log in to view analysis");
+  }
+
+  console.log("[api:getSkillAnalysis] token source", {
+    fromSession: Boolean(accessToken),
+    hasToken: Boolean(token),
+  });
+
+  const response = await fetch(`${API_BASE}/api/analysis`, {
+    headers: {
+      ...getAuthHeaders(token),
+    },
+  });
+
+  if (response.status === 404) {
+    throw new Error("No analysis yet. Click Analyse My Profile to get started");
+  }
+
+  const body = await parseJsonResponse<{ data: SkillAnalysis }>(response);
+  return body.data;
+}
+
+export async function analyseMyProfile(accessToken?: string): Promise<SkillAnalysis> {
+  const token = resolveAccessToken(accessToken);
+  if (!token) {
+    throw new Error("Please log in to analyse profile");
+  }
+
+  console.log("[api:analyseMyProfile] token source", {
+    fromSession: Boolean(accessToken),
+    hasToken: Boolean(token),
+  });
+
+  const response = await fetch(`${API_BASE}/api/analysis/analyse`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+  });
+
+  const body = await parseJsonResponse<{ data: SkillAnalysis }>(response);
+  return body.data;
 }
 
 export async function createSession(payload: CreateSessionPayload): Promise<SessionItem> {

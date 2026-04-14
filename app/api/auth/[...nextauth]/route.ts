@@ -88,12 +88,19 @@ const authConfig: NextAuthOptions = {
             : null,
       });
 
+      console.log("[NextAuth][signIn] google backend token received", {
+        provider: account.provider,
+        hasAccessToken: Boolean(backendResult.data.accessToken),
+        hasRefreshToken: Boolean(backendResult.data.refreshToken),
+        userId: backendResult.data.user.id,
+      });
+
       (user as { accessToken?: string }).accessToken = backendResult.data.accessToken;
       (user as { refreshToken?: string }).refreshToken = backendResult.data.refreshToken;
       (user as { backendUser?: unknown }).backendUser = backendResult.data.user;
       return true;
     },
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         const typed = user as {
           accessToken?: string;
@@ -104,12 +111,32 @@ const authConfig: NextAuthOptions = {
         token.refreshToken = typed.refreshToken;
         token.user = typed.backendUser ?? user;
       }
+
+      console.log("[NextAuth][jwt] token state", {
+        provider: account?.provider ?? "unknown",
+        hasUser: Boolean(user),
+        hasAccessToken: Boolean(token.accessToken),
+        hasRefreshToken: Boolean(token.refreshToken),
+        userId: token.user && typeof token.user === "object" ? (token.user as { id?: string }).id : undefined,
+      });
+
       return token;
     },
     async session({ session, token }) {
       session.accessToken = typeof token.accessToken === "string" ? token.accessToken : undefined;
       session.refreshToken = typeof token.refreshToken === "string" ? token.refreshToken : undefined;
-      session.user = token.user as typeof session.user;
+      session.user = {
+        ...session.user,
+        ...(typeof token.user === "object" && token.user ? token.user : {}),
+      } as typeof session.user;
+
+      console.log("[NextAuth][session] session state", {
+        hasSession: Boolean(session),
+        hasUser: Boolean(session.user?.id),
+        hasAccessToken: Boolean(session.accessToken),
+        hasRefreshToken: Boolean(session.refreshToken),
+      });
+
       return session;
     },
   },

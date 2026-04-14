@@ -13,7 +13,7 @@ type SocketContextType = {
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL ?? "http://localhost:5000";
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001";
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -30,6 +30,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const socketInstance = io(SOCKET_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
     });
 
     const onConnect = () => {

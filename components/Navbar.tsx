@@ -95,6 +95,12 @@ export default function Navbar() {
               <Link href="/dashboard" className={navLinkClass("/dashboard")}>
                 Dashboard
               </Link>
+              <Link href="/analysis" className={`inline-flex items-center gap-1 ${navLinkClass("/analysis")}`}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="m12 2 2.5 5.5L20 10l-5.5 2.5L12 18l-2.5-5.5L4 10l5.5-2.5L12 2Z" />
+                </svg>
+                Analysis
+              </Link>
               <Link href="/matches" className={navLinkClass("/matches")}>
                 Matches
               </Link>

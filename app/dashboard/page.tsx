@@ -1,27 +1,34 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
   DashboardMatch,
   DashboardStats,
   SkillIntent,
+  SkillAnalysis,
   SkillItem,
   SkillLevel,
+  getSkillAnalysis,
   getDashboardStats,
   getInitialUserSkills,
   getRecommendedMatches,
 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import AvatarUpload from "@/components/AvatarUpload";
+import ScoreRing from "@/components/ScoreRing";
 
 const categories = ["Development", "Design", "Communication", "Analytics", "Business"];
 const levels: SkillLevel[] = ["Beginner", "Intermediate", "Advanced"];
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
   const { user } = useAuth();
   const [skills, setSkills] = useState<SkillItem[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [matches, setMatches] = useState<DashboardMatch[]>([]);
+  const [analysis, setAnalysis] = useState<SkillAnalysis | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [name, setName] = useState("");
@@ -34,6 +41,31 @@ export default function DashboardPage() {
     getInitialUserSkills().then(setSkills);
     getRecommendedMatches().then(setMatches);
   }, []);
+
+  useEffect(() => {
+    console.log("[DashboardPage] session state", {
+      status,
+      hasSession: Boolean(session),
+      hasAccessToken: Boolean(session?.accessToken),
+      userId: session?.user?.id,
+    });
+
+    if (status === "loading") {
+      return;
+    }
+
+    if (!session?.accessToken) {
+      setAnalysis(null);
+      return;
+    }
+
+    console.log("[DashboardPage] loading analysis with session token", {
+      userId: session.user?.id,
+      hasAccessToken: Boolean(session.accessToken),
+    });
+
+    getSkillAnalysis(session.accessToken).then(setAnalysis).catch(() => setAnalysis(null));
+  }, [session?.accessToken, session?.user?.id, status]);
 
   useEffect(() => {
     getDashboardStats(skills).then(setStats);
@@ -102,6 +134,37 @@ export default function DashboardPage() {
         <StatCard title="Skills Offered" value={stats?.skillsOffered ?? 0} />
         <StatCard title="Skills Wanted" value={stats?.skillsWanted ?? 0} />
         <StatCard title="Profile Score" value={`${stats?.profileScore ?? 0}%`} />
+      </section>
+
+      <section className="mt-6">
+        <div className="rounded-2xl border border-slate-700 bg-[#1E293B] p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-white">AI Skill Analysis</h2>
+              {!analysis ? (
+                <p className="mt-1 text-sm text-slate-300">Get your AI skill analysis and personalised growth roadmap.</p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-300">Profile Score: {analysis.profile_score}/100</p>
+              )}
+            </div>
+
+            {!analysis ? (
+              <Link
+                href="/analysis"
+                className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400"
+              >
+                Get your AI skill analysis →
+              </Link>
+            ) : (
+              <div className="flex items-center gap-4">
+                <ScoreRing score={analysis.profile_score} size={80} animated />
+                <Link href="/analysis" className="text-sm font-semibold text-amber-300 hover:text-amber-200">
+                  View full analysis →
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="mt-10 grid gap-6 lg:grid-cols-2">

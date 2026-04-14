@@ -72,8 +72,10 @@ function LoginPageContent() {
     setLoading(true);
     setActiveAction("password");
     try {
-      await login(email, password);
-      redirectToNext();
+      const result = await login(email, password);
+      if (result.success) {
+        router.push("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 import { getSession, signIn, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { isValidEmail, normalizeEmail, validatePassword } from "@/lib/authValidation";
 import {
   AuthApiUser,
@@ -30,7 +31,7 @@ type AuthContextValue = {
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (emailOrPhone: string, password: string) => Promise<void>;
+  login: (emailOrPhone: string, password: string) => Promise<{ success: boolean }>;
   sendOtp: (identifier: string) => Promise<{ expiresAt: number; lastSentAt: number }>;
   verifyOtp: (identifier: string, otp: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -89,6 +90,7 @@ function mapSessionUserToAuthUser(user: SessionUserShape): AuthUser {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(() => {
     if (typeof window === "undefined") return null;
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -113,8 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = `${TOKEN_KEY}=${refreshToken}; Max-Age=86400; Path=/; SameSite=Lax`;
   };
 
-  const login = async (emailOrPhone: string, password: string) => {
-    if (typeof window === "undefined") return;
+  const login = async (emailOrPhone: string, password: string): Promise<{ success: boolean }> => {
+    if (typeof window === "undefined") {
+      return { success: false };
+    }
     const email = normalizeEmail(emailOrPhone);
 
     if (!isValidEmail(email)) {
@@ -131,6 +135,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       response.data.accessToken,
       response.data.refreshToken,
     );
+    router.push("/dashboard");
+    return { success: true };
   };
 
   const sendOtp = async (identifier: string) => {
