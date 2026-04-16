@@ -6,14 +6,18 @@ import { useSession } from "next-auth/react";
 import {
   DashboardMatch,
   DashboardStats,
+  MyTaskScore,
   SkillIntent,
   SkillAnalysis,
   SkillItem,
   SkillLevel,
+  TaskBoardItem,
   getSkillAnalysis,
   getDashboardStats,
   getInitialUserSkills,
+  getMyTaskScoreApi,
   getRecommendedMatches,
+  getTaskBoard,
 } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import AvatarUpload from "@/components/AvatarUpload";
@@ -29,6 +33,8 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [matches, setMatches] = useState<DashboardMatch[]>([]);
   const [analysis, setAnalysis] = useState<SkillAnalysis | null>(null);
+  const [myTaskScore, setMyTaskScore] = useState<MyTaskScore | null>(null);
+  const [latestTasks, setLatestTasks] = useState<TaskBoardItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
   const [name, setName] = useState("");
@@ -40,6 +46,10 @@ export default function DashboardPage() {
   useEffect(() => {
     getInitialUserSkills().then(setSkills);
     getRecommendedMatches().then(setMatches);
+    getTaskBoard({ status: "ACTIVE" })
+      .then((result) => setLatestTasks(result.tasks.slice(0, 3)))
+      .catch(() => setLatestTasks([]));
+    getMyTaskScoreApi().then(setMyTaskScore).catch(() => setMyTaskScore(null));
   }, []);
 
   useEffect(() => {
@@ -134,6 +144,52 @@ export default function DashboardPage() {
         <StatCard title="Skills Offered" value={stats?.skillsOffered ?? 0} />
         <StatCard title="Skills Wanted" value={stats?.skillsWanted ?? 0} />
         <StatCard title="Profile Score" value={`${stats?.profileScore ?? 0}%`} />
+      </section>
+
+      <section className="mt-6 grid gap-4 lg:grid-cols-3">
+        <article className="rounded-2xl border border-slate-700 bg-[#1E293B] p-5 lg:col-span-2">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-xl font-semibold text-white">My Task Score</h2>
+            <Link href="/leaderboard" className="text-sm font-semibold text-amber-300 hover:text-amber-200">
+              View Leaderboard
+            </Link>
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-700 bg-[#121523] p-3">
+              <p className="text-xs text-slate-400">Current Badge</p>
+              <p className="mt-2 text-lg font-semibold text-amber-300">{myTaskScore?.badge ?? "BEGINNER"}</p>
+            </div>
+            <div className="rounded-lg border border-slate-700 bg-[#121523] p-3">
+              <p className="text-xs text-slate-400">Total Points</p>
+              <p className="mt-2 text-lg font-semibold text-white">{myTaskScore?.total_points ?? 0}</p>
+            </div>
+            <div className="rounded-lg border border-slate-700 bg-[#121523] p-3">
+              <p className="text-xs text-slate-400">Rank</p>
+              <p className="mt-2 text-lg font-semibold text-white">
+                {myTaskScore?.rank ? `#${myTaskScore.rank}` : "Unranked"}
+              </p>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-slate-700 bg-[#1E293B] p-5">
+          <h2 className="text-xl font-semibold text-white">Active Tasks</h2>
+          <div className="mt-4 space-y-3">
+            {latestTasks.length === 0 && <p className="text-sm text-slate-400">No active tasks yet.</p>}
+            {latestTasks.map((task) => (
+              <div key={task.id} className="rounded-lg border border-slate-700 bg-[#121523] p-3">
+                <p className="font-medium text-white">{task.title}</p>
+                <p className="mt-1 text-xs text-slate-300">{task.company.name} - {task.points} XP</p>
+              </div>
+            ))}
+          </div>
+          <Link
+            href="/tasks"
+            className="mt-4 inline-flex w-full items-center justify-center rounded-lg border border-amber-500 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:border-amber-400 hover:text-amber-200"
+          >
+            View All Tasks
+          </Link>
+        </article>
       </section>
 
       <section className="mt-6">

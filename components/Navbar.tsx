@@ -51,6 +51,12 @@ export default function Navbar() {
             <Link href="/browse" className="text-slate-300 hover:text-amber-300 transition-colors">
               Browse
             </Link>
+            <Link href="/tasks" className="text-slate-300 hover:text-amber-300 transition-colors">
+              Tasks
+            </Link>
+            <Link href="/leaderboard" className="text-slate-300 hover:text-amber-300 transition-colors">
+              Leaderboard
+            </Link>
           </div>
 
           <div className="flex items-center gap-3">
@@ -79,6 +85,12 @@ export default function Navbar() {
         <div className="flex items-center gap-5 text-sm font-medium">
           <Link href="/browse" className={navLinkClass("/browse")}>
             Browse
+          </Link>
+          <Link href="/tasks" className={navLinkClass("/tasks")}>
+            Tasks
+          </Link>
+          <Link href="/leaderboard" className={navLinkClass("/leaderboard")}>
+            Leaderboard
           </Link>
           {isAuthenticated && (
             <Link href="/chat" className="relative">

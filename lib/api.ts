@@ -152,6 +152,98 @@ export type SkillAnalysis = {
   score_explanation?: string;
 };
 
+export type TaskDifficulty = "EASY" | "MEDIUM" | "HARD";
+export type TaskStatus = "ACTIVE" | "CLOSED" | "DRAFT";
+export type TaskSubmissionStatus = "PENDING" | "REVIEWED" | "ACCEPTED" | "REJECTED";
+export type UserBadge = "BEGINNER" | "INTERMEDIATE" | "ADVANCED" | "EXPERT" | "MASTER";
+
+export type TaskCompanySummary = {
+  id: string;
+  name: string;
+  logo_url: string | null;
+  website: string | null;
+  industry: string | null;
+};
+
+export type TaskFeedbackDetails = {
+  feedback: string;
+  strengths: string[];
+  improvements: string[];
+};
+
+export type TaskBoardItem = {
+  id: string;
+  company_id: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  category: SkillCategory;
+  difficulty: TaskDifficulty;
+  points: number;
+  deadline: string | null;
+  max_submissions: number;
+  status: TaskStatus;
+  created_at: string;
+  updated_at: string;
+  company: TaskCompanySummary;
+  submission_count: number;
+  remaining_ms: number | null;
+  is_urgent: boolean;
+};
+
+export type TaskBoardStats = {
+  active_tasks: number;
+  companies: number;
+  total_submissions: number;
+  average_score: number;
+};
+
+export type TaskSubmission = {
+  id: string;
+  task_id: string;
+  user_id: string;
+  content: string;
+  file_url: string | null;
+  score: number | null;
+  feedback: string | null;
+  status: TaskSubmissionStatus;
+  submitted_at: string;
+  reviewed_at: string | null;
+  feedback_details?: TaskFeedbackDetails | null;
+};
+
+export type TaskDetailResponse = {
+  task: TaskBoardItem & { submissions?: TaskSubmission[] };
+  has_submitted: boolean;
+  current_submission: TaskSubmission | null;
+};
+
+export type LeaderboardEntry = {
+  id: string;
+  user_id: string;
+  total_points: number;
+  tasks_completed: number;
+  tasks_accepted: number;
+  rank: number | null;
+  badge: UserBadge;
+  updated_at: string;
+  user: {
+    id: string;
+    name: string;
+    avatar_url: string | null;
+    location: string | null;
+  };
+};
+
+export type MyTaskScore = {
+  user_id: string;
+  total_points: number;
+  tasks_completed: number;
+  tasks_accepted: number;
+  rank: number | null;
+  badge: UserBadge;
+};
+
 export type CreateSessionPayload = {
   teacher_id: string;
   skill_id: string;
@@ -349,7 +441,7 @@ const profileData: UserProfile[] = [
 ];
 
 const delay = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5001";
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -791,4 +883,101 @@ export async function getUserProfile(id: string): Promise<UserProfile | null> {
     await delay();
     return profileData.find((profile) => profile.id === id) ?? null;
   }
+}
+
+export async function getTaskBoard(filters: {
+  category?: SkillCategory;
+  difficulty?: TaskDifficulty;
+  status?: TaskStatus;
+  search?: string;
+} = {}): Promise<{ tasks: TaskBoardItem[]; stats: TaskBoardStats }> {
+  const params = new URLSearchParams();
+  if (filters.category) params.set("category", filters.category);
+  if (filters.difficulty) params.set("difficulty", filters.difficulty);
+  if (filters.status) params.set("status", filters.status);
+  if (filters.search) params.set("search", filters.search);
+
+  const response = await fetch(`${API_BASE}/api/tasks${params.size ? `?${params.toString()}` : ""}`);
+  const body = await parseJsonResponse<{
+    data: {
+      tasks: TaskBoardItem[];
+      stats: TaskBoardStats;
+    };
+  }>(response);
+
+  return body.data;
+}
+
+export async function getTaskByIdApi(taskId: string): Promise<TaskDetailResponse> {
+  const token = getAuthToken();
+  const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
+    headers: token ? getAuthHeaders(token) : undefined,
+  });
+
+  const body = await parseJsonResponse<{ data: TaskDetailResponse }>(response);
+  return body.data;
+}
+
+export async function submitTaskApi(payload: {
+  taskId: string;
+  content: string;
+  file_url?: string;
+}): Promise<TaskSubmission> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to submit a task");
+  }
+
+  const response = await fetch(`${API_BASE}/api/tasks/submit`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...getAuthHeaders(token),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  const body = await parseJsonResponse<{ data: { submission: TaskSubmission } }>(response);
+  return body.data.submission;
+}
+
+export async function getLeaderboardApi(category?: SkillCategory): Promise<LeaderboardEntry[]> {
+  const params = new URLSearchParams();
+  if (category) {
+    params.set("category", category);
+  }
+
+  const response = await fetch(
+    `${API_BASE}/api/tasks/leaderboard${params.size ? `?${params.toString()}` : ""}`,
+  );
+  const body = await parseJsonResponse<{ data: { leaderboard: LeaderboardEntry[] } }>(response);
+  return body.data.leaderboard;
+}
+
+export async function getMyTaskSubmissionsApi(): Promise<TaskSubmission[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to view submissions");
+  }
+
+  const response = await fetch(`${API_BASE}/api/tasks/my-submissions`, {
+    headers: getAuthHeaders(token),
+  });
+
+  const body = await parseJsonResponse<{ data: { submissions: TaskSubmission[] } }>(response);
+  return body.data.submissions;
+}
+
+export async function getMyTaskScoreApi(): Promise<MyTaskScore> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error("Please log in to view score");
+  }
+
+  const response = await fetch(`${API_BASE}/api/tasks/my-score`, {
+    headers: getAuthHeaders(token),
+  });
+
+  const body = await parseJsonResponse<{ data: { score: MyTaskScore } }>(response);
+  return body.data.score;
 }
