@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import OTPVerifySheet from "@/components/OTPVerifySheet";
 import SkillTagInput from "@/components/SkillTagInput";
 import { useAuth } from "@/context/AuthContext";
@@ -204,6 +205,7 @@ export default function ProfileEditPage() {
         email_verified: (updated as { email_verified?: boolean }).email_verified,
       });
       setBasicStatus("Saved");
+      toast.success("Profile updated!");
     } catch (error) {
       setBasicError(error instanceof Error ? error.message : "Unable to save profile");
     } finally {
@@ -218,6 +220,7 @@ export default function ProfileEditPage() {
       setSavingSkills(true);
       await updateProfileSkills(skills);
       setSkillsStatus("Skills saved");
+      toast.success("Skill added successfully");
     } catch (error) {
       setSkillsError(error instanceof Error ? error.message : "Unable to save skills");
     } finally {

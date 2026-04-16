@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import {
   SessionItem,
@@ -108,6 +109,15 @@ export default function SessionsPage() {
       setError(null);
       const updated = await updateSessionStatus(sessionId, status);
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      if (status === "ACCEPTED") {
+        toast.success("Session request accepted!");
+      } else if (status === "REJECTED") {
+        toast.error("Session request rejected");
+      } else if (status === "PENDING") {
+        toast.success("Session request sent!");
+      } else {
+        toast.success("Session updated");
+      }
     } catch (statusError) {
       setError(statusError instanceof Error ? statusError.message : "Unable to update session status");
     } finally {
@@ -149,6 +159,7 @@ export default function SessionsPage() {
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       setEditingSessionId(null);
       setEditState(null);
+      toast.success("Session updated");
     } catch (editError) {
       setError(editError instanceof Error ? editError.message : "Unable to update session");
     } finally {

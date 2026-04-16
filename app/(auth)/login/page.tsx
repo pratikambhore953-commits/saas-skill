@@ -1,9 +1,10 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
+import toast from "react-hot-toast";
 import OTPInput from "@/components/OTPInput";
 import { useAuth } from "@/context/AuthContext";
 import { isValidEmail, validatePassword } from "@/lib/authValidation";
@@ -39,6 +40,7 @@ function LoginPageContent() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<"password" | "otp-send" | "otp-verify" | "google" | null>(null);
+  const hasDisplayedQueryParamMessage = useRef(false);
 
   useEffect(() => {
     if (!otpExpiry) return;
@@ -52,6 +54,15 @@ function LoginPageContent() {
   }, [otpExpiry, now]);
 
   const canResendOtp = otpRemainingSeconds === 0;
+
+  useEffect(() => {
+    if (hasDisplayedQueryParamMessage.current) return;
+    const message = searchParams.get("message");
+    if (message) {
+      hasDisplayedQueryParamMessage.current = true;
+      toast.error(message);
+    }
+  }, [searchParams]);
 
   const redirectToNext = () => {
     router.push(getSafeNextPath(searchParams.get("next")));
