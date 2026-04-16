@@ -41,6 +41,13 @@ function timeAgo(value: string): string {
   return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
+function safeNotificationLink(link?: string | null): string {
+  if (!link || !link.startsWith("/") || link.startsWith("//")) {
+    return "/notifications";
+  }
+  return link;
+}
+
 export default function NotificationBell({ className = "" }: BellProps) {
   const router = useRouter();
   const { socket } = useSocket();
@@ -96,7 +103,7 @@ export default function NotificationBell({ className = "" }: BellProps) {
       } catch {}
     }
     setOpen(false);
-    router.push(notification.link || "/notifications");
+    router.push(safeNotificationLink(notification.link));
   };
 
   const onDelete = async (notificationId: string) => {

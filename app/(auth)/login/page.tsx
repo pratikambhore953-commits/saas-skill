@@ -40,7 +40,7 @@ function LoginPageContent() {
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [activeAction, setActiveAction] = useState<"password" | "otp-send" | "otp-verify" | "google" | null>(null);
-  const hasNotifiedQueryMessage = useRef(false);
+  const hasDisplayedQueryParamMessage = useRef(false);
 
   useEffect(() => {
     if (!otpExpiry) return;
@@ -56,10 +56,10 @@ function LoginPageContent() {
   const canResendOtp = otpRemainingSeconds === 0;
 
   useEffect(() => {
-    if (hasNotifiedQueryMessage.current) return;
+    if (hasDisplayedQueryParamMessage.current) return;
     const message = searchParams.get("message");
     if (message) {
-      hasNotifiedQueryMessage.current = true;
+      hasDisplayedQueryParamMessage.current = true;
       toast.error(message);
     }
   }, [searchParams]);

@@ -254,9 +254,10 @@ function StatCounter({
   active: boolean;
 }) {
   const count = useCountUp(value, active);
+  const displayValue = Number.isInteger(value) ? `${Math.round(count)}${suffix}` : `${count.toFixed(1)}${suffix}`;
   return (
     <div>
-      <p className="text-3xl font-bold">{value === 4.9 ? count.toFixed(1) : Math.round(count)}{suffix}</p>
+      <p className="text-3xl font-bold">{displayValue}</p>
       <p className="text-sm font-medium text-slate-900/80">{label}</p>
     </div>
   );

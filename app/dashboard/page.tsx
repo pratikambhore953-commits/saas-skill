@@ -19,7 +19,7 @@ import {
 } from "@/lib/api";
 import ScoreRing from "@/components/ScoreRing";
 import EmptyState from "@/components/EmptyState";
-import { SkeletonCard, SkeletonText } from "@/components/Skeleton";
+import { SkeletonCard } from "@/components/Skeleton";
 import toast from "react-hot-toast";
 
 const categories = ["Development", "Design", "Communication", "Analytics", "Business"];
@@ -266,7 +266,7 @@ export default function DashboardPage() {
               <span className="text-amber-300">•</span>
               <div className="flex-1">
                 <p className="text-sm text-slate-100">{entry}</p>
-                <SkeletonText className="mt-1 h-3 w-16 bg-slate-800" />
+                <p className="mt-1 text-xs text-slate-500">Activity</p>
               </div>
               <p className="text-xs text-slate-500">{index + 1}h ago</p>
             </div>

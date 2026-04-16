@@ -439,7 +439,7 @@ function handleSessionExpiry(): never {
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem("skillswap_auth");
     document.cookie = `${REFRESH_TOKEN_KEY}=; Max-Age=0; Path=/; SameSite=Lax`;
-    window.location.href = "/login?message=Session expired, please login again";
+    window.location.href = "/login";
   }
   throw new Error("Session expired, please login again");
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import EmptyState from "@/components/EmptyState";
 import { NotificationItem, getNotifications, markAllNotificationsAsRead, markNotificationAsRead } from "@/lib/api";
 
@@ -15,13 +16,21 @@ export default function NotificationsPage() {
   }, []);
 
   const markAll = async () => {
-    await markAllNotificationsAsRead();
-    setItems((prev) => prev.map((item) => ({ ...item, read: true })));
+    try {
+      await markAllNotificationsAsRead();
+      setItems((prev) => prev.map((item) => ({ ...item, read: true })));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to mark all notifications");
+    }
   };
 
   const markOne = async (id: string) => {
-    await markNotificationAsRead(id);
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+    try {
+      await markNotificationAsRead(id);
+      setItems((prev) => prev.map((item) => (item.id === id ? { ...item, read: true } : item)));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to mark notification");
+    }
   };
 
   return (

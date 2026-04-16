@@ -9,6 +9,7 @@ export default function PageTransition({ children }: { children: ReactNode }) {
 
   return (
     <AnimatePresence mode="wait" initial={false}>
+      {/* Keep initial false to prevent a fade-in flash on first page mount. */}
       <motion.div
         key={pathname}
         initial={{ opacity: 0, y: 20 }}
