@@ -2,10 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import BookSessionModal from "@/components/BookSessionModal";
-import { DashboardMatch, PublicUserSkill, getMatches, getPublicUserProfile } from "@/lib/api";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+import EmptyState from "@/components/EmptyState";
+import {
+  DashboardMatch,
+  PublicUserSkill,
+  getMatches,
+  getOrCreateConversation,
+  getPublicUserProfile,
+} from "@/lib/api";
 
 export default function MatchesPage() {
   const router = useRouter();
@@ -20,32 +26,15 @@ export default function MatchesPage() {
   }, []);
 
   const handleMessage = async (otherUserId: string) => {
-    const token = localStorage.getItem("skillswap_access_token") ?? localStorage.getItem("skillswap_token");
-    if (!token) {
-      router.push("/login?next=/matches");
-      return;
-    }
-
     try {
       setLoadingMatchId(otherUserId);
       setError(null);
-      const response = await fetch(`${API_BASE}/api/chat/conversation`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ otherUserId }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Unable to start conversation");
-      }
-
-      const body = (await response.json()) as { data: { conversation: { id: string } } };
-      router.push(`/chat?conversation=${body.data.conversation.id}`);
+      const conversation = await getOrCreateConversation(otherUserId);
+      router.push(`/chat?conversation=${conversation.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to start conversation");
+      const message = err instanceof Error ? err.message : "Unable to start conversation";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoadingMatchId(null);
     }
@@ -62,7 +51,9 @@ export default function MatchesPage() {
       }
       setBookingTarget({ id: profile.id, name: profile.name, skills: offeredSkills });
     } catch (bookingError) {
-      setError(bookingError instanceof Error ? bookingError.message : "Unable to open booking");
+      const message = bookingError instanceof Error ? bookingError.message : "Unable to open booking";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoadingBookId(null);
     }
@@ -113,6 +104,16 @@ export default function MatchesPage() {
             </div>
           </article>
         ))}
+        {matches.length === 0 && (
+          <div className="md:col-span-2 lg:col-span-3">
+            <EmptyState
+              title="No matches yet"
+              message="Add both offered and wanted skills to unlock smart match recommendations."
+              actionLabel="Add Skills"
+              actionLink="/profile/edit"
+            />
+          </div>
+        )}
       </div>
 
       {error && <p className="mt-4 text-sm text-red-300">{error}</p>}

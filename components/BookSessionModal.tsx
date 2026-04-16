@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { CreateSessionPayload, PublicUserSkill, SessionMode, createSession } from "@/lib/api";
 
 type BookSessionModalProps = {
@@ -109,12 +110,15 @@ export default function BookSessionModal({
       setLoading(true);
       await createSession(payload);
       setSuccess("Session request sent successfully.");
+      toast.success("Session request sent!");
       onSessionCreated?.();
       setTimeout(() => {
         closeModal();
       }, 900);
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Unable to request session");
+      const message = submitError instanceof Error ? submitError.message : "Unable to request session";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

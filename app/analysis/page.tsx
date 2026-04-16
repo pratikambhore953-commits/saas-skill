@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 import ScoreRing from "@/components/ScoreRing";
-import { getSkillAnalysis, type SkillAnalysis } from "@/lib/api";
+import { analyseMyProfile, getSkillAnalysis, type SkillAnalysis } from "@/lib/api";
 
 const loadingMessages = [
   "Analysing your skills...",
@@ -32,11 +33,6 @@ export default function AnalysisPage() {
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [error, setError] = useState("");
   const [loadingIndex, setLoadingIndex] = useState(0);
-
-  useEffect(() => {
-    console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
-    console.log("Token:", localStorage.getItem("skillswap_access_token"));
-  }, []);
 
   useEffect(() => {
     console.log("[AnalysisPage] session state", {
@@ -97,45 +93,18 @@ export default function AnalysisPage() {
     try {
       setError("");
       setIsAnalysing(true);
-      console.log("Analyse clicked");
 
       if (!session) {
-        console.log("[AnalysisPage] session missing");
         throw new Error("Please sign in to analyse your profile.");
       }
 
-      const accessToken = session.accessToken ?? localStorage.getItem("skillswap_access_token");
-
-      console.log("[AnalysisPage] posting analysis request", {
-        userId: session.user?.id,
-        hasSession: Boolean(session),
-        hasAccessToken: Boolean(accessToken),
-      });
-
-      if (!accessToken) {
-        throw new Error("No access token found. Please sign in again.");
-      }
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/analysis/analyse`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${accessToken}`,
-          },
-        },
-      );
-
-      const data = await response.json();
-      if (data.success) {
-        setAnalysis(data.data);
-      } else {
-        setError(data.message ?? "Something went wrong. Try again.");
-      }
+      const result = await analyseMyProfile(session.accessToken);
+      setAnalysis(result);
+      toast.success("Analysis complete!");
     } catch (analyseError) {
       const message = analyseError instanceof Error ? analyseError.message : "Something went wrong. Try again.";
       setError(message);
+      toast.error(message);
       console.error(analyseError);
     } finally {
       setIsAnalysing(false);

@@ -2,6 +2,8 @@
 
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import toast from "react-hot-toast";
 import OTPVerifySheet from "@/components/OTPVerifySheet";
 import SkillTagInput from "@/components/SkillTagInput";
 import { useAuth } from "@/context/AuthContext";
@@ -168,8 +170,11 @@ export default function ProfileEditPage() {
         location: updated.location,
         email_verified: (updated as { email_verified?: boolean }).email_verified,
       });
+      toast.success("Profile photo updated!");
     } catch (error) {
-      setAvatarError(error instanceof Error ? error.message : "Avatar upload failed");
+      const message = error instanceof Error ? error.message : "Avatar upload failed";
+      setAvatarError(message);
+      toast.error(message);
       setAvatarPreview(null);
     } finally {
       setAvatarUploading(false);
@@ -204,8 +209,11 @@ export default function ProfileEditPage() {
         email_verified: (updated as { email_verified?: boolean }).email_verified,
       });
       setBasicStatus("Saved");
+      toast.success("Profile updated!");
     } catch (error) {
-      setBasicError(error instanceof Error ? error.message : "Unable to save profile");
+      const message = error instanceof Error ? error.message : "Unable to save profile";
+      setBasicError(message);
+      toast.error(message);
     } finally {
       setSavingBasic(false);
     }
@@ -218,8 +226,11 @@ export default function ProfileEditPage() {
       setSavingSkills(true);
       await updateProfileSkills(skills);
       setSkillsStatus("Skills saved");
+      toast.success("Skill added successfully");
     } catch (error) {
-      setSkillsError(error instanceof Error ? error.message : "Unable to save skills");
+      const message = error instanceof Error ? error.message : "Unable to save skills";
+      setSkillsError(message);
+      toast.error(message);
     } finally {
       setSavingSkills(false);
     }
@@ -253,8 +264,11 @@ export default function ProfileEditPage() {
       });
       setPhone((updated as { phone?: string | null }).phone ?? null);
       setSecurityStatus("Security changes applied");
+      toast.success("Security settings updated");
     } catch (error) {
-      setSecurityStatus(error instanceof Error ? error.message : "Unable to refresh profile");
+      const message = error instanceof Error ? error.message : "Unable to refresh profile";
+      setSecurityStatus(message);
+      toast.error(message);
     }
   };
 
@@ -264,9 +278,12 @@ export default function ProfileEditPage() {
       setDeletingAccount(true);
       await deleteCurrentUser();
       logout();
+      toast.success("Account deleted");
       router.push("/");
     } catch (error) {
-      setDeleteError(error instanceof Error ? error.message : "Unable to delete account");
+      const message = error instanceof Error ? error.message : "Unable to delete account";
+      setDeleteError(message);
+      toast.error(message);
     } finally {
       setDeletingAccount(false);
     }
@@ -307,8 +324,7 @@ export default function ProfileEditPage() {
               className="group relative h-[120px] w-[120px] overflow-hidden rounded-full border border-slate-600"
             >
               {avatarSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={avatarSrc} alt="Profile avatar" className="h-full w-full object-cover" />
+                <Image src={avatarSrc} alt="Profile avatar" fill unoptimized loading="lazy" className="object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center bg-amber-500 text-3xl font-semibold text-black">
                   {initials}

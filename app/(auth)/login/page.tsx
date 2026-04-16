@@ -4,6 +4,7 @@ import { FormEvent, Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
+import toast from "react-hot-toast";
 import OTPInput from "@/components/OTPInput";
 import { useAuth } from "@/context/AuthContext";
 import { isValidEmail, validatePassword } from "@/lib/authValidation";
@@ -53,6 +54,14 @@ function LoginPageContent() {
 
   const canResendOtp = otpRemainingSeconds === 0;
 
+  useEffect(() => {
+    const message = searchParams.get("message");
+    if (message) {
+      toast.error(message);
+      setError(message);
+    }
+  }, [searchParams]);
+
   const redirectToNext = () => {
     router.push(getSafeNextPath(searchParams.get("next")));
   };
@@ -77,7 +86,9 @@ function LoginPageContent() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const message = err instanceof Error ? err.message : "Login failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
       setActiveAction(null);
@@ -98,7 +109,9 @@ function LoginPageContent() {
       setOtpExpiry(payload.expiresAt);
       setMessage("OTP sent to your email.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send OTP");
+      const message = err instanceof Error ? err.message : "Unable to send OTP";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
       setActiveAction(null);
@@ -114,7 +127,9 @@ function LoginPageContent() {
       await verifyOtp(email, otp);
       redirectToNext();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to verify OTP");
+      const message = err instanceof Error ? err.message : "Unable to verify OTP";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
       setActiveAction(null);
@@ -130,7 +145,9 @@ function LoginPageContent() {
       await loginWithGoogle();
       redirectToNext();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign in failed");
+      const message = err instanceof Error ? err.message : "Google sign in failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
       setActiveAction(null);

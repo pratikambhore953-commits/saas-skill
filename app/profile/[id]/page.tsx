@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import Image from "next/image";
 import BookSessionModal from "@/components/BookSessionModal";
 import { useAuth } from "@/context/AuthContext";
 import { PublicUserProfile, getPublicUserProfile } from "@/lib/api";
@@ -61,8 +62,14 @@ export default function ProfilePage() {
         <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
           <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border border-slate-600 bg-slate-800">
             {profile.avatar_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={profile.avatar_url} alt={`${profile.name} avatar`} className="h-full w-full object-cover" />
+              <Image
+                src={profile.avatar_url}
+                alt={`${profile.name} avatar`}
+                fill
+                unoptimized
+                loading="lazy"
+                className="object-cover"
+              />
             ) : (
               <span className="text-2xl font-semibold text-amber-300">{profile.name.slice(0, 2).toUpperCase()}</span>
             )}

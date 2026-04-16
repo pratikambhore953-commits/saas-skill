@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
+import EmptyState from "@/components/EmptyState";
 import { useAuth } from "@/context/AuthContext";
 import {
   SessionItem,
@@ -86,7 +88,9 @@ export default function SessionsPage() {
       const rows = await getSessions();
       setSessions(rows);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Unable to load sessions");
+      const message = loadError instanceof Error ? loadError.message : "Unable to load sessions";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -108,8 +112,11 @@ export default function SessionsPage() {
       setError(null);
       const updated = await updateSessionStatus(sessionId, status);
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+      toast.success("Session updated successfully");
     } catch (statusError) {
-      setError(statusError instanceof Error ? statusError.message : "Unable to update session status");
+      const message = statusError instanceof Error ? statusError.message : "Unable to update session status";
+      setError(message);
+      toast.error(message);
     } finally {
       setPendingActionId(null);
     }
@@ -149,8 +156,11 @@ export default function SessionsPage() {
       setSessions((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
       setEditingSessionId(null);
       setEditState(null);
+      toast.success("Session updated successfully");
     } catch (editError) {
-      setError(editError instanceof Error ? editError.message : "Unable to update session");
+      const message = editError instanceof Error ? editError.message : "Unable to update session";
+      setError(message);
+      toast.error(message);
     } finally {
       setPendingActionId(null);
     }
@@ -185,9 +195,13 @@ export default function SessionsPage() {
       {loading ? (
         <p className="mt-6 text-slate-300">Loading your sessions...</p>
       ) : filtered.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-900/50 px-6 py-10 text-center">
-          <p className="text-lg text-slate-200">No {tab === "ALL" ? "sessions" : tab.toLowerCase()} sessions yet.</p>
-          <p className="mt-2 text-sm text-slate-400">Book a session from profile, matches, or chat to get started.</p>
+        <div className="mt-6">
+          <EmptyState
+            title={`No ${tab === "ALL" ? "sessions" : tab.toLowerCase()} sessions yet`}
+            message="Book a session from profile, matches, or chat to get started."
+            actionLabel="Find Matches"
+            actionLink="/matches"
+          />
         </div>
       ) : (
         <div className="mt-6 space-y-4">

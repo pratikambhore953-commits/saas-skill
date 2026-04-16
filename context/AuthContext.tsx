@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import { getSession, signIn, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import toast from "react-hot-toast";
 import { isValidEmail, normalizeEmail, validatePassword } from "@/lib/authValidation";
 import {
   AuthApiUser,
@@ -135,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       response.data.accessToken,
       response.data.refreshToken,
     );
+    toast.success(`Welcome back, ${response.data.user.name}!`);
     router.push("/dashboard");
     return { success: true };
   };
@@ -178,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session.accessToken,
       session.refreshToken,
     );
+    toast.success(`Welcome back, ${(session.user as SessionUserShape).name ?? "there"}!`);
   };
 
   const register = async (name: string, email: string, password: string) => {
@@ -190,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     await registerApi(name.trim(), normalizedEmail, password);
     await sendOtpApi(normalizedEmail);
+    toast.success("Account created! Welcome!");
   };
 
   const updateCurrentUser = (nextUser: AuthUser) => {

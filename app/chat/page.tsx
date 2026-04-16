@@ -2,43 +2,18 @@
 
 import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import toast from "react-hot-toast";
 import { useAuth } from "@/context/AuthContext";
 import { useSocket } from "@/context/SocketContext";
 import BookSessionModal from "@/components/BookSessionModal";
-import { PublicUserSkill, getPublicUserProfile } from "@/lib/api";
-
-type ConversationUser = {
-  id: string;
-  name: string;
-  avatar_url: string | null;
-};
-
-type LastMessage = {
-  id: string;
-  content: string;
-  created_at: string;
-  sender_id: string;
-};
-
-type ConversationItem = {
-  id: string;
-  otherUser: ConversationUser;
-  lastMessage: LastMessage | null;
-  unreadCount: number;
-  created_at: string;
-};
-
-type MessageItem = {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  content: string;
-  read: boolean;
-  created_at: string;
-  sender?: ConversationUser;
-};
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+import {
+  ChatConversation,
+  ChatMessage,
+  PublicUserSkill,
+  getChatConversations,
+  getChatMessages,
+  getPublicUserProfile,
+} from "@/lib/api";
 const PAGE_SIZE = 50;
 
 function formatTime(value: string) {
@@ -68,9 +43,10 @@ function ChatPageContent() {
   const { isAuthenticated, isLoading, user } = useAuth();
   const { socket, connected, onlineUsers, setUnreadCount } = useSocket();
 
-  const [conversations, setConversations] = useState<ConversationItem[]>([]);
+  const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<MessageItem[]>([]);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [query, setQuery] = useState("");
   const [text, setText] = useState("");
   const [loadingConversations, setLoadingConversations] = useState(true);
@@ -82,11 +58,6 @@ function ChatPageContent() {
 
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("skillswap_access_token") ?? localStorage.getItem("skillswap_token")
-      : null;
-
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.replace("/login?next=/chat");
@@ -97,58 +68,43 @@ function ChatPageContent() {
     const initialConversationId = searchParams.get("conversation");
     if (initialConversationId) {
       setSelectedConversationId(initialConversationId);
+      setMobileView("chat");
     }
   }, [searchParams]);
 
   useEffect(() => {
-    if (!token) {
-      setLoadingConversations(false);
-      return;
-    }
+    if (!isAuthenticated) return;
 
     const loadConversations = async () => {
       try {
         setError(null);
-        const response = await fetch(`${API_BASE}/api/chat/conversations`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!response.ok) {
-          throw new Error("Failed to load conversations");
-        }
-        const body = (await response.json()) as { data: { conversations: ConversationItem[] } };
-        setConversations(body.data.conversations);
-        setUnreadCount(body.data.conversations.reduce((sum, c) => sum + c.unreadCount, 0));
+        const nextConversations = await getChatConversations();
+        setConversations(nextConversations);
+        setUnreadCount(nextConversations.reduce((sum, c) => sum + c.unreadCount, 0));
 
-        if (!selectedConversationId && body.data.conversations.length > 0) {
-          setSelectedConversationId(body.data.conversations[0].id);
+        if (!selectedConversationId && nextConversations.length > 0) {
+          setSelectedConversationId(nextConversations[0].id);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to load conversations");
+        const message = err instanceof Error ? err.message : "Unable to load conversations";
+        setError(message);
+        toast.error(message);
       } finally {
         setLoadingConversations(false);
       }
     };
 
-    loadConversations();
-  }, [token, selectedConversationId, setUnreadCount]);
+    void loadConversations();
+  }, [isAuthenticated, selectedConversationId, setUnreadCount]);
 
   useEffect(() => {
-    if (!selectedConversationId || !token) return;
+    if (!selectedConversationId || !isAuthenticated) return;
 
     const loadMessages = async () => {
       try {
         setLoadingMessages(true);
-        const response = await fetch(
-          `${API_BASE}/api/chat/${selectedConversationId}/messages?page=1&limit=${PAGE_SIZE}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          },
-        );
-        if (!response.ok) {
-          throw new Error("Failed to load messages");
-        }
-        const body = (await response.json()) as { data: { messages: MessageItem[] } };
-        setMessages(body.data.messages);
+        const nextMessages = await getChatMessages(selectedConversationId, 1, PAGE_SIZE);
+        setMessages(nextMessages);
         setConversations((prev) =>
           prev.map((conversation) =>
             conversation.id === selectedConversationId
@@ -160,19 +116,21 @@ function ChatPageContent() {
         socket?.emit("join_conversation", { conversationId: selectedConversationId });
         socket?.emit("mark_read", { conversationId: selectedConversationId });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to load messages");
+        const message = err instanceof Error ? err.message : "Unable to load messages";
+        setError(message);
+        toast.error(message);
       } finally {
         setLoadingMessages(false);
       }
     };
 
-    loadMessages();
-  }, [selectedConversationId, token, socket]);
+    void loadMessages();
+  }, [selectedConversationId, isAuthenticated, socket]);
 
   useEffect(() => {
     if (!socket) return;
 
-    const onNewMessage = (incoming: MessageItem) => {
+    const onNewMessage = (incoming: ChatMessage) => {
       setConversations((prev) =>
         prev.map((conversation) =>
           conversation.id === incoming.conversation_id
@@ -247,7 +205,9 @@ function ChatPageContent() {
       setBookingSkills(offeredSkills);
       setBookingOpen(true);
     } catch (bookingError) {
-      setError(bookingError instanceof Error ? bookingError.message : "Unable to open booking");
+      const message = bookingError instanceof Error ? bookingError.message : "Unable to open booking";
+      setError(message);
+      toast.error(message);
     } finally {
       setBookingLoading(false);
     }
@@ -260,7 +220,7 @@ function ChatPageContent() {
     const content = text.trim();
     if (!content) return;
 
-    const optimistic: MessageItem = {
+    const optimistic: ChatMessage = {
       id: `tmp-${Date.now()}`,
       conversation_id: selectedConversationId,
       sender_id: user.id,
@@ -278,7 +238,9 @@ function ChatPageContent() {
       { conversationId: selectedConversationId, content },
       (result: { ok: boolean; message?: string }) => {
         if (!result.ok) {
-          setError(result.message ?? "Failed to send message");
+          const message = result.message ?? "Failed to send message";
+          setError(message);
+          toast.error(message);
         }
       },
     );
@@ -294,7 +256,11 @@ function ChatPageContent() {
 
   return (
     <div className="mx-auto flex h-[calc(100vh-4rem)] w-full max-w-6xl overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-      <aside className="w-[300px] border-r border-slate-700 bg-slate-800/70 p-4">
+      <aside
+        className={`w-full border-r border-slate-700 bg-slate-800/70 p-4 md:w-[300px] ${
+          mobileView === "chat" ? "hidden md:block" : "block"
+        }`}
+      >
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-semibold text-white">Messages</h1>
           <span className={`text-xs ${connected ? "text-emerald-400" : "text-slate-400"}`}>
@@ -318,7 +284,10 @@ function ChatPageContent() {
             {filteredConversations.map((conversation) => (
               <button
                 key={conversation.id}
-                onClick={() => setSelectedConversationId(conversation.id)}
+                onClick={() => {
+                  setSelectedConversationId(conversation.id);
+                  setMobileView("chat");
+                }}
                 className={`w-full rounded-lg border p-3 text-left transition ${
                   conversation.id === selectedConversationId
                     ? "border-slate-600 bg-slate-700"
@@ -352,7 +321,9 @@ function ChatPageContent() {
         )}
       </aside>
 
-      <section className="flex flex-1 flex-col bg-slate-900">
+      <section
+        className={`flex flex-1 flex-col bg-slate-900 ${mobileView === "list" ? "hidden md:flex" : "flex"}`}
+      >
         {!selectedConversation ? (
           <div className="flex flex-1 items-center justify-center text-slate-400">
             Select a conversation to start chatting
@@ -361,6 +332,16 @@ function ChatPageContent() {
           <>
             <header className="flex items-center justify-between border-b border-slate-700 px-4 py-3">
               <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMobileView("list")}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-600 text-slate-200 md:hidden"
+                  aria-label="Back to conversation list"
+                >
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                    <path d="M15 18 9 12l6-6" />
+                  </svg>
+                </button>
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-700 text-sm font-semibold text-white">
                   {selectedConversation ? getInitials(selectedConversation.otherUser.name) : "--"}
                 </div>

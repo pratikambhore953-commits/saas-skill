@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 import OTPInput from "@/components/OTPInput";
 import { useAuth } from "@/context/AuthContext";
 import { isValidEmail, validatePassword } from "@/lib/authValidation";
@@ -43,8 +44,11 @@ export default function RegisterPage() {
       await register(name, email, password);
       setOtpStep(true);
       setMessage("Check your email for OTP.");
+      toast.success("Account created! Welcome!");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
+      const message = err instanceof Error ? err.message : "Registration failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -55,9 +59,12 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await verifyOtp(email, otp);
+      toast.success("Welcome! Your account is verified.");
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "OTP verification failed");
+      const message = err instanceof Error ? err.message : "OTP verification failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -69,8 +76,11 @@ export default function RegisterPage() {
     try {
       await sendOtp(email);
       setMessage("OTP resent successfully.");
+      toast.success("OTP resent successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to resend OTP");
+      const message = err instanceof Error ? err.message : "Unable to resend OTP";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -83,7 +93,9 @@ export default function RegisterPage() {
       await loginWithGoogle();
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Google sign up failed");
+      const message = err instanceof Error ? err.message : "Google sign up failed";
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@
 
 import { ChangeEvent, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
 
 function getInitials(name: string): string {
@@ -87,8 +88,7 @@ export default function AvatarUpload({ editable = true }: AvatarUploadProps) {
       aria-label={editable ? "Upload avatar" : "User avatar"}
     >
       {avatarSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={avatarSrc} alt="User avatar" className="h-full w-full object-cover" />
+        <Image src={avatarSrc} alt="User avatar" fill unoptimized loading="lazy" className="object-cover" />
       ) : (
         <div className="flex h-full w-full items-center justify-center bg-amber-500/20 text-xl font-semibold text-amber-300">
           {initials}
