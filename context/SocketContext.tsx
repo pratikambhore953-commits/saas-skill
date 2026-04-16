@@ -44,17 +44,22 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     const onMessageNotification = () => {
       setUnreadCount((prev) => prev + 1);
     };
+    const onNewNotification = () => {
+      setUnreadCount((prev) => prev + 1);
+    };
 
     socketInstance.on("connect", onConnect);
     socketInstance.on("disconnect", onDisconnect);
     socketInstance.on("online_users", onOnlineUsers);
     socketInstance.on("message_notification", onMessageNotification);
+    socketInstance.on("new_notification", onNewNotification);
 
     return () => {
       socketInstance.off("connect", onConnect);
       socketInstance.off("disconnect", onDisconnect);
       socketInstance.off("online_users", onOnlineUsers);
       socketInstance.off("message_notification", onMessageNotification);
+      socketInstance.off("new_notification", onNewNotification);
       socketInstance.disconnect();
       setSocket(null);
     };

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useSession } from "next-auth/react";
+import toast from "react-hot-toast";
 import ScoreRing from "@/components/ScoreRing";
 import { getSkillAnalysis, type SkillAnalysis } from "@/lib/api";
 
@@ -130,12 +131,16 @@ export default function AnalysisPage() {
       const data = await response.json();
       if (data.success) {
         setAnalysis(data.data);
+        toast.success("Analysis complete!");
       } else {
-        setError(data.message ?? "Something went wrong. Try again.");
+        const message = data.message ?? "Something went wrong. Try again.";
+        setError(message);
+        toast.error(message);
       }
     } catch (analyseError) {
       const message = analyseError instanceof Error ? analyseError.message : "Something went wrong. Try again.";
       setError(message);
+      toast.error(message);
       console.error(analyseError);
     } finally {
       setIsAnalysing(false);

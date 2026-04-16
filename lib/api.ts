@@ -152,6 +152,28 @@ export type SkillAnalysis = {
   score_explanation?: string;
 };
 
+export type NotificationType =
+  | "SESSION_BOOKED"
+  | "SESSION_ACCEPTED"
+  | "SESSION_REJECTED"
+  | "SESSION_REMINDER"
+  | "TASK_SCORED"
+  | "TASK_ACCEPTED"
+  | "NEW_MESSAGE"
+  | "NEW_MATCH"
+  | "SYSTEM";
+
+export type NotificationItem = {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: NotificationType;
+  read: boolean;
+  link?: string | null;
+  created_at: string;
+};
+
 export type CreateSessionPayload = {
   teacher_id: string;
   skill_id: string;
@@ -350,10 +372,12 @@ const profileData: UserProfile[] = [
 
 const delay = (ms = 150) => new Promise((resolve) => setTimeout(resolve, ms));
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+const ACCESS_TOKEN_KEY = "skillswap_access_token";
+const REFRESH_TOKEN_KEY = "skillswap_token";
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("skillswap_access_token") ?? localStorage.getItem("skillswap_token");
+  return localStorage.getItem(ACCESS_TOKEN_KEY) ?? localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 async function readApiError(response: Response): Promise<string> {
@@ -372,14 +396,82 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
   return (await response.json()) as T;
 }
 
-function getAuthHeaders(token: string): HeadersInit {
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
 function resolveAccessToken(accessToken?: string): string | null {
   return accessToken ?? getAuthToken();
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (typeof window === "undefined") return null;
+  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) return null;
+
+  const response = await fetch(`${API_BASE}/api/auth/refresh-token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refreshToken }),
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const body = (await response.json()) as {
+    data?: { accessToken?: string; refreshToken?: string };
+    accessToken?: string;
+    refreshToken?: string;
+  };
+  const accessToken = body.data?.accessToken ?? body.accessToken;
+  const nextRefreshToken = body.data?.refreshToken ?? body.refreshToken;
+  if (!accessToken) return null;
+
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  if (nextRefreshToken) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, nextRefreshToken);
+    document.cookie = `${REFRESH_TOKEN_KEY}=${nextRefreshToken}; Max-Age=86400; Path=/; SameSite=Lax`;
+  }
+
+  return accessToken;
+}
+
+function handleSessionExpiry(): never {
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem("skillswap_auth");
+    document.cookie = `${REFRESH_TOKEN_KEY}=; Max-Age=0; Path=/; SameSite=Lax`;
+    window.location.href = "/login?message=Session expired, please login again";
+  }
+  throw new Error("Session expired, please login again");
+}
+
+async function authedFetch(path: string, init: RequestInit = {}, accessToken?: string): Promise<Response> {
+  const token = resolveAccessToken(accessToken);
+  if (!token) {
+    handleSessionExpiry();
+  }
+
+  const headers = new Headers(init.headers ?? {});
+  if (!headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  let response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const refreshed = await refreshAccessToken();
+  if (!refreshed) {
+    handleSessionExpiry();
+  }
+
+  headers.set("Authorization", `Bearer ${refreshed}`);
+  response = await fetch(`${API_BASE}${path}`, { ...init, headers });
+  if (response.status === 401) {
+    handleSessionExpiry();
+  }
+
+  return response;
 }
 
 export async function getPublicUserProfile(userId: string): Promise<PublicUserProfile> {
@@ -400,16 +492,10 @@ export async function updateProfileBasic(payload: {
   about_me?: string;
   location?: string;
 }): Promise<PublicUserProfile> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to update your profile");
-  }
-
-  const response = await fetch(`${API_BASE}/api/profile/basic`, {
+  const response = await authedFetch("/api/profile/basic", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(token),
     },
     body: JSON.stringify(payload),
   });
@@ -426,16 +512,10 @@ export async function updateProfileBasic(payload: {
 }
 
 export async function updateProfileSkills(skills: ProfileSkillInput[]): Promise<PublicUserSkill[]> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to update your skills");
-  }
-
-  const response = await fetch(`${API_BASE}/api/profile/skills`, {
+  const response = await authedFetch("/api/profile/skills", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(token),
     },
     body: JSON.stringify({ skills }),
   });
@@ -448,22 +528,16 @@ export async function requestProfileOtp(changeType: ProfileChangeType, payload?:
   new_email?: string;
   phone?: string;
 }): Promise<{ success: boolean; message: string }> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to continue");
-  }
-
   const endpointMap: Record<ProfileChangeType, string> = {
     EMAIL_CHANGE: "/api/profile/request-email-change",
     PHONE_CHANGE: "/api/profile/request-phone-change",
     PASSWORD_CHANGE: "/api/profile/request-password-change",
   };
 
-  const response = await fetch(`${API_BASE}${endpointMap[changeType]}`, {
+  const response = await authedFetch(endpointMap[changeType], {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(token),
     },
     body: JSON.stringify(payload ?? {}),
   });
@@ -480,16 +554,10 @@ export async function verifyProfileOtp(payload: {
   change_type: ProfileChangeType;
   new_password?: string;
 }): Promise<{ user: PublicUserProfile }> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to continue");
-  }
-
-  const response = await fetch(`${API_BASE}/api/profile/verify-otp`, {
+  const response = await authedFetch("/api/profile/verify-otp", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(token),
     },
     body: JSON.stringify(payload),
   });
@@ -508,17 +576,11 @@ export async function verifyProfileOtp(payload: {
 }
 
 export async function uploadProfileAvatar(file: File): Promise<PublicUserProfile> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to upload avatar");
-  }
-
   const formData = new FormData();
   formData.append("avatar", file);
 
-  const response = await fetch(`${API_BASE}/api/profile/avatar`, {
+  const response = await authedFetch("/api/profile/avatar", {
     method: "POST",
-    headers: getAuthHeaders(token),
     body: formData,
   });
 
@@ -534,16 +596,8 @@ export async function uploadProfileAvatar(file: File): Promise<PublicUserProfile
 }
 
 export async function deleteCurrentUser(): Promise<void> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to delete your account");
-  }
-
-  const response = await fetch(`${API_BASE}/api/users/me`, {
+  const response = await authedFetch("/api/users/me", {
     method: "DELETE",
-    headers: {
-      ...getAuthHeaders(token),
-    },
   });
 
   if (!response.ok) {
@@ -562,11 +616,7 @@ export async function getSkillAnalysis(accessToken?: string): Promise<SkillAnaly
     hasToken: Boolean(token),
   });
 
-  const response = await fetch(`${API_BASE}/api/analysis`, {
-    headers: {
-      ...getAuthHeaders(token),
-    },
-  });
+  const response = await authedFetch("/api/analysis", {}, token);
 
   if (response.status === 404) {
     throw new Error("No analysis yet. Click Analyse My Profile to get started");
@@ -587,29 +637,26 @@ export async function analyseMyProfile(accessToken?: string): Promise<SkillAnaly
     hasToken: Boolean(token),
   });
 
-  const response = await fetch(`${API_BASE}/api/analysis/analyse`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getAuthHeaders(token),
+  const response = await authedFetch(
+    "/api/analysis/analyse",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
     },
-  });
+    token,
+  );
 
   const body = await parseJsonResponse<{ data: SkillAnalysis }>(response);
   return body.data;
 }
 
 export async function createSession(payload: CreateSessionPayload): Promise<SessionItem> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to request a session");
-  }
-
-  const response = await fetch(`${API_BASE}/api/sessions`, {
+  const response = await authedFetch("/api/sessions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
@@ -623,15 +670,8 @@ export async function createSession(payload: CreateSessionPayload): Promise<Sess
 }
 
 export async function getSessions(status?: SessionStatus): Promise<SessionItem[]> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to view sessions");
-  }
-
   const query = status ? `?status=${status}` : "";
-  const response = await fetch(`${API_BASE}/api/sessions${query}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await authedFetch(`/api/sessions${query}`);
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -642,16 +682,10 @@ export async function getSessions(status?: SessionStatus): Promise<SessionItem[]
 }
 
 export async function updateSessionStatus(sessionId: string, status: SessionStatus): Promise<SessionItem> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to update sessions");
-  }
-
-  const response = await fetch(`${API_BASE}/api/sessions/${sessionId}/status`, {
+  const response = await authedFetch(`/api/sessions/${sessionId}/status`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ status }),
   });
@@ -668,16 +702,10 @@ export async function updateSession(
   sessionId: string,
   payload: Partial<Pick<CreateSessionPayload, "date" | "duration_minutes" | "mode" | "description" | "meeting_link" | "location">>,
 ): Promise<SessionItem> {
-  const token = getAuthToken();
-  if (!token) {
-    throw new Error("Please log in to update sessions");
-  }
-
-  const response = await fetch(`${API_BASE}/api/sessions/${sessionId}`, {
+  const response = await authedFetch(`/api/sessions/${sessionId}`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(payload),
   });
@@ -738,14 +766,11 @@ export async function getRecommendedMatches(): Promise<DashboardMatch[]> {
 }
 
 export async function getMatches(): Promise<DashboardMatch[]> {
-  const token = getAuthToken();
-  if (!token) {
+  if (!getAuthToken()) {
     return matchesData;
   }
 
-  const response = await fetch(`${API_BASE}/api/matches`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
+  const response = await authedFetch("/api/matches");
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -771,6 +796,42 @@ export async function getMatches(): Promise<DashboardMatch[]> {
     youTeach: item.your_offered_skill?.name ?? "",
     avatar: item.avatar_url ? item.avatar_url.slice(0, 2).toUpperCase() : item.name.slice(0, 2).toUpperCase(),
   }));
+}
+
+export async function getNotifications(): Promise<{ notifications: NotificationItem[]; unreadCount: number }> {
+  const response = await authedFetch("/api/notifications");
+  const body = await parseJsonResponse<{
+    data?: { notifications?: NotificationItem[]; unreadCount?: number };
+    notifications?: NotificationItem[];
+    unreadCount?: number;
+  }>(response);
+  const notifications = body.data?.notifications ?? body.notifications ?? [];
+  const unreadCount =
+    body.data?.unreadCount ??
+    body.unreadCount ??
+    notifications.filter((item) => !item.read).length;
+  return { notifications, unreadCount };
+}
+
+export async function markNotificationAsRead(notificationId: string): Promise<void> {
+  const response = await authedFetch(`/api/notifications/${notificationId}/read`, { method: "PUT" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+}
+
+export async function markAllNotificationsAsRead(): Promise<void> {
+  const response = await authedFetch("/api/notifications/read-all", { method: "PUT" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  const response = await authedFetch(`/api/notifications/${notificationId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
 }
 
 export async function getUserProfile(id: string): Promise<UserProfile | null> {
